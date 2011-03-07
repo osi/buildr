@@ -559,8 +559,8 @@ describe Buildr::IntellijIdea do
         @bar_lib_urls.grep(%r{foo/target/classes}).should == []
       end
 
-      it "depends on the the other project's target/resources directory" do
-        @bar_lib_urls.grep(%r{file://\$MODULE_DIR\$/../foo/target/resources}).size.should == 1
+      it "does not depend on the the other project's target/resources directory" do
+        @bar_lib_urls.grep(%r{file://\$MODULE_DIR\$/../foo/target/resources}).size.should == 0
       end
     end
 
