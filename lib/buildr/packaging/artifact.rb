@@ -119,6 +119,19 @@ module Buildr
       Buildr.artifact(:group=>group, :id=>id, :version=>version, :type=>:pom)
     end
 
+    def dependencies=(dependencies)
+      @dependencies = dependencies
+    end
+    
+    def dependencies
+      @dependencies ||= POM.load(self).dependencies.map { |spec| artifact(spec) } if self.is_a? Artifact
+      @dependencies ||= []
+    end
+    
+    def with_dependencies
+      [self] + dependencies
+    end
+    
     # :call-seq:
     #   sources_artifact => Artifact
     #
@@ -154,6 +167,18 @@ module Buildr
         xml.artifactId    id
         xml.version       version
         xml.classifier    classifier if classifier
+        unless @dependencies.nil? || @dependencies.empty?
+          xml.dependencies do
+            @dependencies.uniq.each do |art|
+              xml.dependency do
+                xml.groupId       art.group
+                xml.artifactId    art.id
+                xml.version       art.version
+                xml.classifier    art.classifier if art.classifier
+              end
+            end
+          end
+        end
       end
     end
 

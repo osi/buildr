@@ -75,6 +75,39 @@ describe Artifact do
     @classified.pom.to_hash.should == @classified.to_hash.merge(:type=>:pom).except(:classifier)
   end
 
+  it 'should have a XML representation of its POM' do
+    @artifact.pom_xml.should == <<-XML
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>library</artifactId>
+  <version>2.0</version>
+</project>
+XML
+  end
+
+  it 'should have its dependencies listed in its XML POM' do
+    a = artifact(@spec)
+    a.dependencies = [artifact('com.example:lib:jar:2.0')]
+    a.pom_xml.should == <<-XML
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>library</artifactId>
+  <version>2.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>lib</artifactId>
+      <version>2.0</version>
+    </dependency>
+  </dependencies>
+</project>
+XML
+  end
+  
   it 'should have associated sources artifact' do
     @artifact.sources_artifact.to_hash.should == @artifact.to_hash.merge(:classifier=>'sources')
   end
@@ -851,6 +884,56 @@ describe ActsAsArtifact, '#upload' do
 
 end
 
+describe ActsAsArtifact, '#dependencies' do
+  it 'should be loaded from POM if available' do
+    repositories.remote = 'http://example.com'
+    dep = artifact('group:appdep:jar:1.0')
+    write dep.pom.name, dep.pom.pom_xml
+    depart = 'group:app1:jar:1.0'
+    write artifact(depart).pom.to_s, <<-XML
+<project>
+  <artifactId>app1</artifactId>
+  <groupId>group</groupId>
+  <version>1.0</version>
+  <dependencies>
+    <dependency>
+      <artifactId>appdep</artifactId>
+      <groupId>group</groupId>
+      <version>1.0</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>
+XML
+    artifact(depart).dependencies.first.should eql(dep)
+  end
+end
+describe ActsAsArtifact, '#with_dependencies' do
+  it 'should return self + dependencies (loaded from POM if available)' do
+    repositories.remote = 'http://example.com'
+    dep = artifact('group:appdep:jar:1.0')
+    write dep.pom.name, dep.pom.pom_xml
+    depart = 'group:app1:jar:1.0'
+    write artifact(depart).pom.to_s, <<-XML
+<project>
+  <artifactId>app1</artifactId>
+  <groupId>group</groupId>
+  <version>1.0</version>
+  <dependencies>
+    <dependency>
+      <artifactId>appdep</artifactId>
+      <groupId>group</groupId>
+      <version>1.0</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>
+XML
+    artifact(depart).with_dependencies[0].should eql(artifact(depart))
+    artifact(depart).with_dependencies[1].should eql(dep)
+  end
+  
+end
 
 describe Rake::Task, ' artifacts' do
   it 'should download all specified artifacts' do
