@@ -347,6 +347,33 @@ describe Project, '#package' do
     end
   end
 
+  it 'should assign compile dependencies to artifact depencencies' do
+    art = artifact('com.example:lib:jar:2.0')
+    define('foo', :group=>'bar', :version=>'1.0') { 
+      compile.with art
+      package(:jar)
+    }
+    project('foo').packages.first.dependencies.first.should eql(art)
+  end
+
+  it 'should accept artifact depencencies via :dependencies' do
+    art = artifact('com.example:lib:jar:2.0')
+    define('foo', :group=>'bar', :version=>'1.0') { 
+      package(:jar).with(:dependencies =>[art])
+    }
+    project('foo').packages.first.dependencies.first.should eql(art)
+  end
+
+  it 'should let :dependencies override compile dependencies' do
+    art1 = artifact('com.example:lib:jar:2.0')
+    art2 = artifact('com.example:lib:jar:2.1')
+    define('foo', :group=>'bar', :version=>'1.0') { 
+      compile.with art1
+      package(:jar).with(:dependencies =>[art2])
+    }
+    project('foo').packages.first.dependencies.first.should eql(art2)
+  end
+
   it 'should create a POM artifact in target directory' do
     define 'foo', :version=>'1.0' do
       package.pom.should be(artifact('foo:foo:pom:1.0'))
@@ -371,6 +398,32 @@ describe Project, '#package' do
   <groupId>bar</groupId>
   <artifactId>foo</artifactId>
   <version>1.0</version>
+</project>
+POM
+    )
+  end
+
+  it 'should create POM artifact that creates its own POM with the same depencencies' do
+    define('foo', :group=>'bar', :version=>'1.0') { 
+      compile.with artifact('com.example:lib:jar:2.0')
+      package(:jar, :classifier=>'srcs') 
+    }
+    pom = project('foo').packages.first.pom
+    pom.invoke
+    read(pom.to_s).should eql(<<-POM
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>bar</groupId>
+  <artifactId>foo</artifactId>
+  <version>1.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>lib</artifactId>
+      <version>2.0</version>
+    </dependency>
+  </dependencies>
 </project>
 POM
     )

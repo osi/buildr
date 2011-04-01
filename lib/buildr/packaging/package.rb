@@ -176,6 +176,9 @@ module Buildr
           package.extend ActsAsArtifact
           package.send :apply_spec, spec.only(*Artifact::ARTIFACT_ATTRIBUTES)
 
+          # package dependencies are compile dependencies iff not otherwise set.
+          package.dependencies |= compile.dependencies
+
           # Create pom associated with package
           class << package
             def pom
@@ -183,6 +186,7 @@ module Buildr
                 pom_filename = Util.replace_extension(self.name, 'pom')
                 spec = {:group=>group, :id=>id, :version=>version, :type=>:pom}
                 @pom = Buildr.artifact(spec, pom_filename)
+                @pom.dependencies = dependencies
                 @pom.content @pom.pom_xml
               end
               @pom
