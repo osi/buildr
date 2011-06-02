@@ -16,6 +16,7 @@
 
 require 'rake/gempackagetask'
 
+YAML::ENGINE.yamler = 'syck'
 
 package = Rake::GemPackageTask.new(spec) do |pkg|
   pkg.need_tar = true
