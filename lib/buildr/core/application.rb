@@ -456,7 +456,7 @@ module Buildr
         versions = trail.scan(/[=><~!]{0,2}\s*[\d\.]+/)
         versions = ['>= 0'] if versions.empty?
         dep = Gem::Dependency.new(name, versions)
-        Gem::SourceIndex.from_installed_gems.search(dep).last || dep
+        Gem.source_index.search(dep).last || dep
       end
     end
 
