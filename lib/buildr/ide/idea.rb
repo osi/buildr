@@ -248,7 +248,7 @@ module Buildr
           generate_compile_output(xml)
           generate_content(xml) unless skip_content?
           generate_initial_order_entries(xml)
-          project_dependencies = []
+          project_dependencies = { } 
 
           self.test_dependency_details.each do |dependency_path, export, source_path|
             project_for_dependency = Buildr.projects.detect do |project|
@@ -256,13 +256,18 @@ module Buildr
                 detect { |proj_art| proj_art.to_s == dependency_path }
             end
             if project_for_dependency
-              if project_for_dependency.iml? && !project_dependencies.include?(project_for_dependency)
-                generate_project_dependency(xml, project_for_dependency.iml.name, export, !export)
+              unless project_dependencies[project_for_dependency]
+                project_dependencies[project_for_dependency] = export
               end
-              project_dependencies << project_for_dependency
               next
             else
               generate_module_lib(xml, url_for_path(dependency_path), export, (source_path ? url_for_path(source_path) : nil), !export)
+            end
+          end
+
+          project_dependencies.each_pair do |project_for_dependency, export|
+            if project_for_dependency.iml?
+              generate_project_dependency(xml, project_for_dependency.iml.name, export, !export)
             end
           end
 
