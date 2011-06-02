@@ -20,7 +20,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'xpath_matchers
 describe Buildr::IntellijIdea do
 
   def invoke_generate_task
-    task('idea:generate').invoke
+    task('idea').invoke
   end
 
   def invoke_clean_task
@@ -97,7 +97,7 @@ describe Buildr::IntellijIdea do
     end
   end
 
-  describe "idea:generate" do
+  describe "idea task" do
 
     def order_entry_xpath
       "/module/component[@name='NewModuleRootManager']/orderEntry"
@@ -141,9 +141,9 @@ describe Buildr::IntellijIdea do
           invoke_generate_task
         end
 
-        it "generates one non-exported 'module-library' orderEntry in IML" do
+        it "generates one non-exported  test scope 'module-library' orderEntry in IML" do
           root_module_xml(@foo).should have_nodes("#{order_entry_xpath}[@type='module-library' and @exported]/library/CLASSES/root", 0)
-          root_module_xml(@foo).should have_nodes("#{order_entry_xpath}[@type='module-library']/library/CLASSES/root", 1)
+          root_module_xml(@foo).should have_nodes("#{order_entry_xpath}[@type='module-library' and @scope='TEST']/library/CLASSES/root", 1)
         end
       end
 
@@ -1048,12 +1048,12 @@ PROJECT_XML
   end
 
   describe "project extension" do
-    it "provides an 'idea:generate' task" do
-      Rake::Task.tasks.detect { |task| task.to_s == "idea:generate" }.should_not be_nil
+    it "provides an 'idea' task" do
+      Rake::Task.tasks.detect { |task| task.to_s == "idea" }.should_not be_nil
     end
 
-    it "documents the 'idea:generate' task" do
-      Rake::Task.tasks.detect { |task| task.to_s == "idea:generate" }.comment.should_not be_nil
+    it "documents the 'idea' task" do
+      Rake::Task.tasks.detect { |task| task.to_s == "idea" }.comment.should_not be_nil
     end
 
     it "provides an 'idea:clean' task" do
@@ -1062,18 +1062,6 @@ PROJECT_XML
 
     it "documents the 'idea:clean' task" do
       Rake::Task.tasks.detect { |task| task.to_s == "idea:clean" }.comment.should_not be_nil
-    end
-
-    it "removes the 'idea' task" do
-      Rake::Task.tasks.detect { |task| task.to_s == "idea" }.should be_nil
-    end
-
-    it "removes the 'idea7x' task" do
-      Rake::Task.tasks.detect { |task| task.to_s == "idea7x" }.should be_nil
-    end
-
-    it "removes the 'idea7x:clean' task" do
-      Rake::Task.tasks.detect { |task| task.to_s == "idea7x:clean" }.should be_nil
     end
 
     describe "#no_iml" do
