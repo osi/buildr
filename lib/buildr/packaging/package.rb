@@ -52,7 +52,17 @@ module Buildr
       project.version ||= project.parent && project.parent.version
     end
 
-    after_define(:package)
+    after_define(:package) do |project|
+      # Wait for all parallel uploads to finish
+      unless project.parent.nil?
+        project.parent.task("upload") do |name|
+          Thread.list.each do |thread|
+            thread.join unless thread == Thread.current
+          end
+          "Wait for parallel uploads to finish from #{name}"
+        end
+      end
+    end
 
     # The project's identifier. Same as the project name, with colons replaced by dashes.
     # The ID for project foo:bar is foo-bar.

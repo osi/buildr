@@ -435,6 +435,7 @@ module URI
       # SSH options are based on the username/password from the URI.
       ssh_options = { :port=>port, :password=>password }.merge(options[:ssh_options] || {})
       ssh_options[:password] ||= SFTP.passwords[host]
+      connection_attempts = 0
       begin
         trace "Connecting to #{host}"
         Net::SFTP.start(host, user, ssh_options) do |sftp|
@@ -468,6 +469,17 @@ module URI
           ssh_options[:password] = password
           retry
         end
+        raise
+      rescue Net::SSH::Disconnect => ex
+        if connection_attempts < 3
+          exponential_backoff = 2**connection_attempts
+          delay = exponential_backoff + rand * exponential_backoff
+          trace "Unable to connect to #{host}, will try to upload #{path} again in #{delay} seconds"
+          sleep(delay)
+          connection_attempts += 1
+          retry
+        end
+        trace "Unable to connect to #{host} after #{connection_attempts} attempts, cannot upload #{path}"
         raise
       end
     end
