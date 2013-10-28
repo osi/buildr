@@ -435,32 +435,35 @@ module URI
       # SSH options are based on the username/password from the URI.
       ssh_options = { :port=>port, :password=>password }.merge(options[:ssh_options] || {})
       ssh_options[:password] ||= SFTP.passwords[host]
+      connection_attempts = 0
       begin
         trace "Connecting to #{host}"
-        Net::SFTP.start(host, user, ssh_options) do |sftp|
-          SFTP.passwords[host] = ssh_options[:password]
-          trace 'Connected'
+        ssh = Net::SSH.start(host, user, ssh_options)
+        sftp = Net::SFTP::Session.new(ssh).connect!
 
-          # To create a path, we need to create all its parent. We use realpath to determine if
-          # the path already exists, otherwise mkdir fails.
-          trace "Creating path #{path}"
-          File.dirname(path).split('/').reject(&:empty?).inject('/') do |base, part|
-            combined = base + part
-            sftp.close(sftp.opendir!(combined)) rescue sftp.mkdir! combined, {}
-            "#{combined}/"
-          end
+        sftp.loop { sftp.opening? }
 
-          with_progress_bar options[:progress] && options[:size], path.split('/').last, options[:size] || 0 do |progress|
-            trace "Uploading to #{path}"
-            sftp.file.open(path, 'w') do |file|
-              while chunk = yield(RW_CHUNK_SIZE)
-                file.write chunk
-                progress << chunk
-              end
-              sftp.setstat(path, :permissions => options[:permissions]) if options[:permissions]
+        SFTP.passwords[host] = ssh_options[:password]
+        trace 'Connected'
+
+        trace "Creating path #{path}"
+        ssh.exec!("mkdir -p #{File.dirname(path)}")
+
+        with_progress_bar options[:progress] && options[:size], path.split('/').last, options[:size] || 0 do |progress|
+          trace "Uploading to #{path}"
+          sftp.file.open(path, 'w') do |file|
+            while chunk = yield(RW_CHUNK_SIZE)
+              file.write chunk
+              progress << chunk
             end
+            sftp.setstat(path, :permissions => options[:permissions]) if options[:permissions]
           end
         end
+
+        sftp.loop
+        sftp.close_channel
+
+        ssh.close
       rescue Net::SSH::AuthenticationFailed=>ex
         # Only if running with console, prompt for password.
         if !ssh_options[:password] && $stdout.isatty
@@ -468,6 +471,17 @@ module URI
           ssh_options[:password] = password
           retry
         end
+        raise
+      rescue Net::SSH::Disconnect => ex
+        if connection_attempts < 3
+          exponential_backoff = 2**connection_attempts
+          delay = exponential_backoff + rand * exponential_backoff
+          trace "Unable to connect to #{host}, will try to upload #{path} again in #{delay} seconds"
+          sleep(delay)
+          connection_attempts += 1
+          retry
+        end
+        trace "Unable to connect to #{host} after #{connection_attempts} attempts, cannot upload #{path}"
         raise
       end
     end
